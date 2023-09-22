@@ -1,0 +1,95 @@
+##########################################################################################
+#
+# RevBayes Simulation: Coalescent BSP process from empirical results
+#
+# authors: Sebastian Hoehna, Ronja Billenstein
+#
+##########################################################################################
+
+###############
+# Preparation #
+###############
+
+NUM_SIMULATIONS = 10
+NUM_TIPS        = 36
+
+names = [taxon("t001")]
+for (i in 2:NUM_TIPS) {
+    names.append( taxon("t" + ifelse(i < 10, "00" + i, ifelse(i < 100, "0" + i, i))) )
+}
+
+# Read in BSP trajectory
+BSP_trace = readTrace("evaluation/horses_iso_BSP.txt", burnin = 0)
+pop_size = BSP_trace[1].getValues()
+times = BSP_trace[4].getValues()
+times.erase( times[1] )
+
+# Read in values for substitution model
+trace = readTrace("output/100000iterations/sequences/horses_numiterations100000_thinning10_iso_BSP_constant_intNG_sequences_numtreesNG_fromNGtrees_reps2.log", burnin = 0.1)
+
+clock = median(trace[7].getValues())
+
+er_1 = median(trace[8].getValues())
+er_2 = median(trace[9].getValues())
+er_3 = median(trace[10].getValues())
+er_4 = median(trace[11].getValues())
+er_5 = median(trace[12].getValues())
+er_6 = median(trace[13].getValues())
+
+p_inv = median(trace[34].getValues())
+
+pi_1 = median(trace[35].getValues())
+pi_2 = median(trace[36].getValues())
+pi_3 = median(trace[37].getValues())
+pi_4 = median(trace[38].getValues())
+
+sr_1 = median(trace[47].getValues())
+sr_2 = median(trace[48].getValues())
+sr_3 = median(trace[49].getValues())
+sr_4 = median(trace[50].getValues())
+
+er <- simplex( v(er_1, er_2, er_3, er_4, er_5, er_6) )
+pi <- simplex( v(pi_1, pi_2, pi_3, pi_4) )
+
+Q := fnGTR(er,pi)
+
+sr <- [sr_1, sr_2, sr_3, sr_4]
+
+
+##############
+# Simulation #
+##############
+
+for (i in 1:NUM_SIMULATIONS) {
+    
+    ##############
+    # Tree model #
+    ##############
+
+    # REMEMBER: evaluation done with piecewise constant intervals at specific times - need to chose method = "specified"
+
+    ### the time tree is a stochastic node modeled by the coalescent skyline process (dnCoalescentSkyline)
+    psi := rCoalescentSkyline(n=1, theta=pop_size, times=times, method="specified", taxa=names)[1]
+
+    #############
+    # Sequences #
+    #############
+
+    seq ~ dnPhyloCTMC(tree=psi, Q=Q, siteRates=sr, pInv=p_inv, type="DNA", branchRates=clock, nSites = 16475)
+
+    ################
+
+    write(psi, filename = "output/simulations/simulation_fromBSP_ntips_"+NUM_TIPS+"_tree_"+i+".tre")
+    writeFasta(filename = "output/simulations/simulation_fromBSP_ntips_"+NUM_TIPS+"_sequences_"+i+".fasta", seq)
+
+    ################
+
+    clear(psi)
+
+}
+
+
+
+
+# you may want to quit RevBayes now
+q()

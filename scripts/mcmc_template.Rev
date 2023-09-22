@@ -1,0 +1,205 @@
+###########################################################
+#                                                         #
+# Template for a RevBayes Analysis with Coalescent Models #
+#                                                         #
+###########################################################
+
+DATAFILE = args[1]
+AGEFILE = args[2]
+
+SAMPLETIMES = args[3]
+
+INPUTDATA = args[4]
+
+MODEL = args[5]
+
+PIECES = args[6]
+
+NUM_INTS = args[7]
+
+NUM_TREES = args[8]
+
+TREESOURCE = args[9]
+
+NUM_MCMC_ITERATIONS = args[10]
+
+NUM_REPLICATES = args[11]
+
+THINNING = args[12]
+
+
+## Global settings
+
+seed(1234)
+
+# create the monitor and moves vectors
+moves     = VectorMoves()
+monitors  = VectorMonitors()
+
+
+#######################
+# Reading in the Data #
+#######################
+
+if (INPUTDATA == "sequences"){
+    sequences <- readDiscreteCharacterData("data/" + DATAFILE)
+    if (SAMPLETIMES == "iso"){
+        taxa <- sequences.taxa()
+    } else if (SAMPLETIMES == "hetero"){
+        taxa <- readTaxonData("data/" + AGEFILE)
+    }
+} else if (INPUTDATA == "MAPtree") {
+    if (TREESOURCE == "constant"){
+        trees = readTreeTrace("output/" + NUM_MCMC_ITERATIONS + "iterations/sequences/horses_numiterations" + NUM_MCMC_ITERATIONS + "_thinning" + THINNING + "_" + SAMPLETIMES + "_constant_NG_intNG_sequences_numtreesNG_fromNGtrees_reps" + NUM_REPLICATES + ".trees", treetype = "clock", burnin = 0.1)
+    } else if (TREESOURCE == "skyline"){
+        trees = readTreeTrace("output/" + NUM_MCMC_ITERATIONS + "iterations/sequences/horses_numiterations" + NUM_MCMC_ITERATIONS + "_thinning" + THINNING + "_" + SAMPLETIMES + "_skyline_constant_intNG_sequences_numtreesNG_fromNGtrees_reps" + NUM_REPLICATES + ".trees", treetype = "clock", burnin = 0.1)
+    } else {
+    print ("Please provide either constant or skyline as TREESOURCE argument")
+    }
+
+    maptree = mapTree(trace=trees, mean=FALSE, conditionalAges=TRUE)
+    taxa <- maptree.taxa()
+} else if (INPUTDATA == "treesample") {
+    
+    BURNIN = 0.1
+    thin = max( [floor( (NUM_MCMC_ITERATIONS * NUM_REPLICATES * (1-BURNIN) / THINNING + NUM_REPLICATES ) / NUM_TREES / 1), 1.0] )
+
+    # Read in the tree sample
+    if (TREESOURCE == "constant"){
+        treetrace = readTreeTrace("output/" + NUM_MCMC_ITERATIONS + "iterations/sequences/horses_numiterations" + NUM_MCMC_ITERATIONS + "_thinning" + THINNING + "_" + SAMPLETIMES + "_constant_NG_intNG_sequences_numtreesNG_fromNGtrees_reps" + NUM_REPLICATES + ".trees", treetype = "clock", thinning = thin, burnin = 0.1)
+    } else if (TREESOURCE == "skyline"){
+        treetrace = readTreeTrace("output/" + NUM_MCMC_ITERATIONS + "iterations/sequences/horses_numiterations" + NUM_MCMC_ITERATIONS + "_thinning" + THINNING + "_" + SAMPLETIMES + "_skyline_constant_intNG_sequences_numtreesNG_fromNGtrees_reps" + NUM_REPLICATES + ".trees", treetype = "clock", thinning = thin, burnin = 0.1)
+    } else {
+    print ("Please provide either constant or skyline as TREESOURCE argument")
+    }
+    trees = treetrace.getTrees()
+
+    while (trees.size() > NUM_TREES){
+        trees.erase( trees[NUM_TREES + 1] )
+    } 
+
+    print(trees.size())
+
+    # Get the taxa
+    taxa <- trees[1].taxa()     
+}
+    
+
+n_taxa <- taxa.size()
+
+##############
+# Tree model #
+##############
+
+source("scripts/models/" + MODEL + ".Rev")
+
+
+if (INPUTDATA == "sequences"){
+    
+    if (SAMPLETIMES == "iso"){
+
+        root_age := psi.rootAge()
+        diff <- (500000 - 250000)/2.0
+        obs_root_age ~ dnNormal(mean = root_age, sd = 60000, min = root_age - diff, max = root_age + diff)
+        obs_root_age.clamp(375000)
+
+    } else if (SAMPLETIMES == "hetero") {
+
+        root_age := psi.rootAge()
+        diff <- (1200000 - 780000)/2.0
+        obs_root_age ~ dnNormal(mean = root_age, sd = 200000, min = root_age - diff, max = root_age + diff)
+        obs_root_age.clamp(850000)
+
+    }
+
+    ### add some moves that change the tree
+    moves.append( mvNarrow(psi, weight=n_taxa) )
+    moves.append( mvNNI(psi, weight=n_taxa) )
+    moves.append( mvFNPR(psi, weight=n_taxa/4.0) )
+    moves.append( mvSubtreeScale(psi, weight=n_taxa/5.0) )
+    moves.append( mvNodeTimeSlideUniform(psi, weight=n_taxa) )
+    moves.append( mvRootTimeScaleBactrian(psi, weight=n_taxa/5.0) )
+    moves.append( mvTreeScale(psi, weight=n_taxa/5.0) )
+
+    
+    #############
+    # Sequences #
+    #############
+
+    er_prior <- v(1,1,1,1,1,1)
+    pi_prior <- v(1,1,1,1)
+    er ~ dnDirichlet(er_prior)
+    pi ~ dnDirichlet(pi_prior)
+
+    moves.append( mvBetaSimplex(er, weight=3) )
+    moves.append( mvDirichletSimplex(er, weight=1) )
+    moves.append( mvBetaSimplex(pi, weight=2) )
+    moves.append( mvDirichletSimplex(pi, weight=1) )
+
+    Q := fnGTR(er,pi)
+
+    alpha ~ dnUniform( 0.0, 1E6 )
+    alpha.setValue( 1.0 )
+    sr := fnDiscretizeGamma( alpha, alpha, 4 )
+    moves.append( mvScale(alpha, weight=2.0) )
+
+    p_inv ~ dnBeta(1,1)
+    moves.append( mvSlide(p_inv) )
+
+    clock ~ dnLoguniform(1e-12,1e-4)
+    clock.setValue(4.68e-8)
+    moves.append( mvScale(clock, weight=2.0) )
+
+    up_down_move = mvUpDownScale(weight=5.0)
+    up_down_move.addVariable(clock,up=TRUE)
+    up_down_move.addVariable(psi,up=FALSE)
+    moves.append( up_down_move)
+
+    seq ~ dnPhyloCTMC(tree=psi, Q=Q, siteRates=sr, pInv=p_inv, type="DNA", branchRates=clock)
+    seq.clamp(sequences)
+} else if ((INPUTDATA == "MAPtree")) {
+    psi.clamp(maptree)
+} else if (INPUTDATA == "treesample") {
+    psi ~ dnEmpiricalSample( tree_prior )
+    psi.clamp(trees)
+}
+
+
+
+#############
+# The Model #
+#############
+
+
+### workspace model wrapper ###
+mymodel = model(psi)
+
+
+
+################
+# The Analysis #
+################
+
+# add monitors
+
+FILENAME = NUM_MCMC_ITERATIONS + "iterations/" + INPUTDATA + "/horses_numiterations" + NUM_MCMC_ITERATIONS + "_thinning" + THINNING + "_" + SAMPLETIMES + "_" + MODEL + "_" + PIECES + "_int" + NUM_INTS + "_" + INPUTDATA + "_numtrees" + NUM_TREES + "_from" + TREESOURCE + "trees_reps" + NUM_REPLICATES
+
+monitors.append( mnModel(filename="output/" +FILENAME + ".log",printgen=THINNING) )
+if (INPUTDATA == "sequences"){
+    monitors.append( mnFile(filename="output/" +FILENAME + ".trees",psi,printgen=THINNING) )
+}
+monitors.append( mnFile(filename="output/" +FILENAME + "_NEs.log",pop_size,printgen=THINNING) )
+if ( (MODEL == "constant") == FALSE ) {
+    monitors.append( mnFile(filename="output/" +FILENAME + "_times.log",interval_times,printgen=THINNING) )
+}
+monitors.append( mnScreen(pop_size, printgen=100) )
+
+mymcmc = mcmc(mymodel, monitors, moves, nruns=NUM_REPLICATES, combine="mixed") 
+mymcmc.run(NUM_MCMC_ITERATIONS, tuning = 100, checkpointInterval=1000, checkpointFile = "checkpoints/" +FILENAME + ".state")
+
+mymcmc.operatorSummary()
+
+################
+
+# you may want to quit RevBayes now
+q()

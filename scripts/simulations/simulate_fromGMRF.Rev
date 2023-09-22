@@ -1,0 +1,115 @@
+##########################################################################################
+#
+# RevBayes Simulation: Coalescent GMRF process from empirical results
+#
+# authors: Sebastian Hoehna, Ronja Billenstein
+#
+##########################################################################################
+
+###############
+# Preparation #
+###############
+
+NUM_SIMULATIONS = 10
+NUM_TIPS        = 36
+
+names = [taxon("t001")]
+for (i in 2:NUM_TIPS) {
+    names.append( taxon("t" + ifelse(i < 10, "00" + i, ifelse(i < 100, "0" + i, i))) )
+}
+
+# Read in GMRF trajectory #
+GMRF_trace = readTrace("evaluation/horses_iso_GMRF.txt", burnin = 0)
+pop_size = GMRF_trace[1].getValues()
+times = GMRF_trace[4].getValues()
+times.erase( times[1] )
+
+# Read in values for substitution model
+trace = readTrace("output/100000iterations/sequences/horses_numiterations100000_thinning10_iso_GMRF_constant_int50_sequences_numtreesNG_fromNGtrees_reps2.log", burnin = 0.1)
+
+clock = median(trace[7].getValues())
+
+er_1 = median(trace[57].getValues())
+er_2 = median(trace[58].getValues())
+er_3 = median(trace[59].getValues())
+er_4 = median(trace[60].getValues())
+er_5 = median(trace[61].getValues())
+er_6 = median(trace[62].getValues())
+
+p_inv = median(trace[112].getValues())
+
+pi_1 = median(trace[113].getValues())
+pi_2 = median(trace[114].getValues())
+pi_3 = median(trace[115].getValues())
+pi_4 = median(trace[116].getValues())
+
+sr_1 = median(trace[170].getValues())
+sr_2 = median(trace[171].getValues())
+sr_3 = median(trace[172].getValues())
+sr_4 = median(trace[173].getValues())
+
+er <- simplex( v(er_1, er_2, er_3, er_4, er_5, er_6) )
+pi <- simplex( v(pi_1, pi_2, pi_3, pi_4) )
+
+Q := fnGTR(er,pi)
+
+sr <- [sr_1, sr_2, sr_3, sr_4]
+
+##############
+# Simulation #
+##############
+
+for (i in 1:NUM_SIMULATIONS) {
+    
+    ##############
+    # Tree model #
+    ##############
+
+    # REMEMBER: evaluation done with piecewise constant intervals at specific times - need to chose method = "specified"
+
+    ### the time tree is a stochastic node modeled by the coalescent skyline process (rCoalescentSkyline)
+    psi := rCoalescentSkyline(n=1, theta=pop_size, times=times, method="specified", taxa=names)[1]
+
+    # root_age := psi.rootAge()
+    # 
+    # diff <- (500000 - 250000)/2.0
+    # obs_root_age ~ dnNormal(mean = root_age, sd = 60000, min = root_age - diff, max = root_age + diff)
+    # obs_root_age.clamp(375000)
+    #
+    # interval_times := psi.getIntervalAges()
+
+    #############
+    # Sequences #
+    #############
+
+    # add specific values here? Maybe from Vershinina et al. (2021) paper?
+
+    er <- simplex( v(0.0, 3.3, 0.1, 0.1, 2.5, 0.0) )
+    pi <- simplex( v(0.25, 0.25, 0.25, 0.25) )
+
+    Q := fnGTR(er,pi)
+
+    alpha = 0.9
+    sr := fnDiscretizeGamma( alpha, alpha, 4 )
+
+    p_inv = 0.7
+    clock = 4.68e-8
+
+    seq ~ dnPhyloCTMC(tree=psi, Q=Q, siteRates=sr, pInv=p_inv, type="DNA", branchRates=clock, nSites = 16475)
+
+    ################
+
+    write(psi, filename = "output/simulations/simulation_fromGMRF_ntips_"+NUM_TIPS+"_tree_"+i+".tre")
+    writeFasta(filename = "output/simulations/simulation_fromGMRF_ntips_"+NUM_TIPS+"_sequences_"+i+".fasta", seq)
+
+    ################
+
+    clear(psi)
+
+}
+
+
+
+
+# you may want to quit RevBayes now
+q()

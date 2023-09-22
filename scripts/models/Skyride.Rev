@@ -1,0 +1,49 @@
+##############
+# Tree model #
+##############
+
+if (SAMPLETIMES == "iso"){
+    ESTIMATED_ROOT_AGE <- 375000
+} else if (SAMPLETIMES == "hetero"){
+    ESTIMATED_ROOT_AGE <- 850000
+}
+
+NUM_INTERVALS = n_taxa - 1
+
+tau ~ dnGamma(0.001,0.001)
+moves.append( mvScale(tau, lambda=0.1, tune=true, weight=2.0) )
+
+sd := 1.0 / sqrt( tau )
+
+ln_pop_size[1] ~ dnUniform(ln(1E-2),ln(1E8))
+ln_pop_size[1].setValue( ln(ESTIMATED_ROOT_AGE/2) )
+pop_size[1] := exp( ln_pop_size[1] )
+moves.append( mvSlide(ln_pop_size[1], delta=0.1, tune=true, weight=2.0) )
+
+num_events[1] <- 1
+
+for (i in 2:NUM_INTERVALS) {
+
+    ln_pop_size[i] ~ dnNormal( ln_pop_size[i-1], sd )
+    ln_pop_size[i].setValue( ln(ESTIMATED_ROOT_AGE/2) )
+    pop_size[i] := exp( ln_pop_size[i] )
+
+    moves.append( mvSlide(ln_pop_size[i], delta=0.1, tune=true, weight=2.0) )
+    
+    num_events[i] <- 1
+
+}
+
+
+
+if ( INPUTDATA == "treesample" ){
+    tree_prior = dnCoalescentSkyline(theta=pop_size, events_per_interval=num_events, method="events", model = PIECES, taxa=taxa)
+    #psi ~ dnEmpiricalSample( tree_prior )
+    #psi.clamp(trees)
+    # getIntervalAges does not seem to work for dnEmpiricalSample and event-based methods
+    interval_times := psi.getIntervalAges()
+} else {
+    ### the time tree is a stochastic node modeled by the coalescent skyline process (dnCoalescentSkyline)
+    psi ~ dnCoalescentSkyline(theta=pop_size, events_per_interval=num_events, method="events", model = PIECES, taxa=taxa)    
+    interval_times := psi.getIntervalAges()
+}

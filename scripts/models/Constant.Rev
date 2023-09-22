@@ -1,0 +1,14 @@
+##############
+# Tree model #
+##############
+
+pop_size ~ dnUniform(0,1E8)
+pop_size.setValue(100000)
+moves.append( mvScale(pop_size, lambda=0.1, tune=true, weight=2.0) )
+
+if ( INPUTDATA == "treesample" ){
+    tree_prior = dnCoalescent(theta=pop_size, taxa=taxa)
+} else {
+	### the time tree is a stochastic node modeled by the constant coalescent process (dnConstantCoalescent)
+	psi ~ dnCoalescent(theta=pop_size, taxa=taxa) 
+}

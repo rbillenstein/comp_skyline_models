@@ -1,0 +1,173 @@
+###########################################################
+#                                                         #
+# RevBayes Analysis with Coalescent Models for validation #
+#                                                         #
+###########################################################
+
+
+INDEX = 4
+
+DATAFILE = "output/simulations/simulation_fromGMRF_ntips_36_sequences_" + INDEX + ".fasta"
+AGEFILE = "NG"
+
+SAMPLETIMES = "iso"
+
+INPUTDATA = "sequences"
+
+MODEL = "BSP"
+
+PIECES = "constant"
+
+NUM_INTS = "NG"
+
+NUM_TREES = "NG"
+
+TREESOURCE = "NG"
+
+NUM_MCMC_ITERATIONS = 250000000
+
+NUM_REPLICATES = 2
+
+THINNING = 1000
+
+
+## Global settings
+
+seed(1234)
+
+# create the monitor and moves vectors
+moves     = VectorMoves()
+monitors  = VectorMonitors()
+
+
+#######################
+# Reading in the Data #
+#######################
+
+sequences <- readDiscreteCharacterData(DATAFILE)
+taxa <- sequences.taxa()
+n_taxa <- taxa.size()
+
+##############
+# Tree model #
+##############
+
+ESTIMATED_ROOT_AGE <- 654221.4
+
+NUM_INTERVALS <- 7
+pop_size[1] ~ dnUniform(1E-2,1E8)
+pop_size[1].setValue( ESTIMATED_ROOT_AGE/2 )
+moves.append( mvScale(pop_size[1], lambda=0.1, tune=true, weight=2.0) )
+
+for (i in 2:NUM_INTERVALS) {
+    pop_size[i] ~ dnExponential( 1/pop_size[i-1] )
+    pop_size[i].setValue( ESTIMATED_ROOT_AGE/2 )
+    moves.append( mvScale(pop_size[i], lambda=0.1, tune=true, weight=2.0) )
+}
+
+num_events_pi <- rep(1, NUM_INTERVALS)
+num_e_simplex_init <- rep(1, NUM_INTERVALS)
+
+num_e_simplex <- simplex(num_e_simplex_init)
+n_multi <- n_taxa-1-NUM_INTERVALS
+
+number_events_pi ~ dnMultinomial(p=num_e_simplex, size=n_multi)
+final_number_events_pi := num_events_pi + number_events_pi
+
+moves.append( mvIidPrior(x=number_events_pi) )
+
+
+### the time tree is a stochastic node modeled by the coalescent skyline process (dnCoalescentSkyline)
+psi ~ dnCoalescentSkyline(theta=pop_size, events_per_interval=final_number_events_pi, method="events", model = PIECES, taxa=taxa)    
+interval_times := psi.getIntervalAges()
+
+
+root_age := psi.rootAge()
+obs_root_age ~ dnNormal(mean = root_age, sd = 100000, min = 0, max = Inf)
+obs_root_age.clamp(ESTIMATED_ROOT_AGE)
+
+
+### add some moves that change the tree
+moves.append( mvNarrow(psi, weight=n_taxa) )
+moves.append( mvNNI(psi, weight=n_taxa) )
+moves.append( mvFNPR(psi, weight=n_taxa/4.0) )
+moves.append( mvSubtreeScale(psi, weight=n_taxa/5.0) )
+moves.append( mvNodeTimeSlideUniform(psi, weight=n_taxa) )
+moves.append( mvRootTimeScaleBactrian(psi, weight=n_taxa/5.0) )
+moves.append( mvTreeScale(psi, weight=n_taxa/5.0) )
+
+
+#############
+# Sequences #
+#############
+
+er_prior <- v(1,1,1,1,1,1)
+pi_prior <- v(1,1,1,1)
+er ~ dnDirichlet(er_prior)
+pi ~ dnDirichlet(pi_prior)
+
+moves.append( mvBetaSimplex(er, weight=3) )
+moves.append( mvDirichletSimplex(er, weight=1) )
+moves.append( mvBetaSimplex(pi, weight=2) )
+moves.append( mvDirichletSimplex(pi, weight=1) )
+
+Q := fnGTR(er,pi)
+
+alpha ~ dnUniform( 0.0, 1E6 )
+alpha.setValue( 1.0 )
+sr := fnDiscretizeGamma( alpha, alpha, 4 )
+moves.append( mvScale(alpha, weight=2.0) )
+
+p_inv ~ dnBeta(1,1)
+p_inv.setValue(0.5)
+moves.append( mvSlide(p_inv) )
+
+clock ~ dnUniform(1e-12,1e-4)
+clock.setValue(4.68e-8)
+moves.append( mvScale(clock, weight=2.0) )
+
+up_down_move = mvUpDownScale(weight=5.0)
+up_down_move.addVariable(clock,up=TRUE)
+up_down_move.addVariable(psi,up=FALSE)
+moves.append( up_down_move)
+
+seq ~ dnPhyloCTMC(tree=psi, Q=Q, siteRates=sr, pInv=p_inv, type="DNA", branchRates=clock)
+seq.clamp(sequences)
+
+
+
+
+#############
+# The Model #
+#############
+
+
+### workspace model wrapper ###
+mymodel = model(psi)
+
+
+
+################
+# The Analysis #
+################
+
+#add monitors
+
+FILENAME = "val_horses_sim" + INDEX + "_numiterations" + NUM_MCMC_ITERATIONS + "_thinning" + THINNING + "_" + SAMPLETIMES + "_" + MODEL + "_" + PIECES + "_int" + NUM_INTS + "_" + INPUTDATA + "_numtrees" + NUM_TREES + "_from" + TREESOURCE + "trees_reps" + NUM_REPLICATES
+
+monitors.append( mnModel(filename="output/validation/" +FILENAME + ".log",printgen=THINNING) )
+monitors.append( mnFile(filename="output/validation/" +FILENAME + ".trees",psi,printgen=THINNING) )
+monitors.append( mnFile(filename="output/validation/" +FILENAME + "_NEs.log",pop_size,printgen=THINNING) )
+monitors.append( mnFile(filename="output/validation/" +FILENAME + "_times.log",interval_times,printgen=THINNING) )
+
+monitors.append( mnScreen(pop_size, printgen=THINNING) )
+
+mymcmc = mcmc(mymodel, monitors, moves, nruns=NUM_REPLICATES, combine="mixed", moveschedule="single") 
+mymcmc.run(NUM_MCMC_ITERATIONS, tuning = 100, checkpointInterval=1000, checkpointFile = "output/validation/checkpoints/" +FILENAME + ".state")
+
+mymcmc.operatorSummary()
+
+################
+
+# you may want to quit RevBayes now
+q()

@@ -1,0 +1,42 @@
+##############
+# Tree model #
+##############
+
+if (SAMPLETIMES == "iso"){
+    ESTIMATED_ROOT_AGE <- 375000
+} else if (SAMPLETIMES == "hetero"){
+    ESTIMATED_ROOT_AGE <- 850000
+}
+
+NUM_INTERVALS = (n_taxa - 1)
+pop_size[1] ~ dnExponential( 2/ESTIMATED_ROOT_AGE )
+pop_size[1].setValue( ESTIMATED_ROOT_AGE/2 )
+moves.append( mvScale(pop_size[1], lambda=0.1, tune=false, weight=5.0) )
+indicator[1] <- 1
+num_events[1] <- 1
+
+mix_prob <- 0.5
+
+for (i in 2:NUM_INTERVALS) {
+
+    pop_size[i] ~ dnReversibleJumpMixture(pop_size[i-1],
+                            dnExponential( 2/ESTIMATED_ROOT_AGE ),
+                            mix_prob)
+    moves.append( mvScale(pop_size[i], lambda=0.1, tune=false, weight=5.0) )
+    moves.append( mvRJSwitch(pop_size[i], weight=5.0) )
+    indicator[i] := ifelse( pop_size[i] == pop_size[i-1], 0, 1 )
+    num_events[i] <- 1
+}
+
+
+if ( INPUTDATA == "treesample" ){
+    tree_prior = dnCoalescentSkyline(theta=pop_size, events_per_interval=num_events, method="events", model = PIECES, taxa=taxa)
+    #psi ~ dnEmpiricalSample( tree_prior )
+    #psi.clamp(trees)
+    # getIntervalAges does not seem to work for dnEmpiricalSample and event-based methods
+    interval_times := psi.getIntervalAges()
+} else {
+    ### the time tree is a stochastic node modeled by the coalescent skyline process (dnCoalescentSkyline)
+    psi ~ dnCoalescentSkyline(theta=pop_size, events_per_interval=num_events, method="events", model = PIECES, taxa=taxa)    
+    interval_times := psi.getIntervalAges()
+}
