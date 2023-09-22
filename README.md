@@ -2,9 +2,9 @@
 
 This repository contains the scripts of the manuscript "Comparison of Bayesian Coalescent Skyline Plot Models for Inferring Demographic Histories".
 
-To run the analyses, please install RevBayes from the [dev-coalescent branch](https://github.com/revbayes/revbayes/tree/dev-coalescent). You can find instructions on how to do it [here](https://revbayes.github.io/compile-linux) (for the development branch).
+To run the analyses, please install `RevBayes` from the [dev-coalescent branch](https://github.com/revbayes/revbayes/tree/dev-coalescent). You can find instructions on how to do it [here](https://revbayes.github.io/compile-linux) (for the development branch).
 
-A [tutorial](https://revbayes.github.io/tutorials/coalescent/) for running Bayesian Coalescent Skyline Plot Models is provided on the RevBayes website.
+A [tutorial](https://revbayes.github.io/tutorials/coalescent/) for running Bayesian Coalescent Skyline Plot Models is provided on the `RevBayes` website.
 
 ## Empirical Analyses
 
