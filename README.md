@@ -92,9 +92,9 @@ This results in the following command:
 rb scripts/mcmc_template.Rev --args horses_heterochronous_sequences.fasta horses_heterochronous_ages.tsv hetero sequences MODEL constant NUM_INTERVALS NG NG 100000 2 10
 ```
 
-### Comparing Joint and Stepwise Inference
+### Comparing Joint and Sequential Inference
 
-In the manuscript, we compare demographic inferences from sequence data (jointly inferring genealogies and population size trajectories), from a single *maximum a posteriori* (MAP) tree and from a sample of trees (stepwise inference, 10 or 100 trees). We chose the trees to come from the *Constant* analysis with sequence data. All these analyses were run with a *GMRF* model with 50 intervals on the heterochronous dataset.
+In the manuscript, we compare demographic inferences from sequence data (jointly inferring genealogies and population size trajectories), from a single *maximum a posteriori* (MAP) tree and from a sample of trees (sequential inference, 10 or 100 trees). We chose the trees to come from the *Constant* analysis with sequence data. All these analyses were run with a *GMRF* model with 50 intervals on the heterochronous dataset.
 
 The following arguments are the same for all four analyses:
 
