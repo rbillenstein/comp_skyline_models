@@ -94,7 +94,7 @@ rb scripts/mcmc_template.Rev --args horses_heterochronous_sequences.fasta horses
 
 ### Comparing Joint and Sequential Inference
 
-In the manuscript, we compare demographic inferences from sequence data (jointly inferring genealogies and population size trajectories), from a single *maximum a posteriori* (MAP) tree and from a sample of trees (sequential inference, 10 or 100 trees). We chose the trees to come from the *Constant* analysis with sequence data. All these analyses were run with a *GMRF* model with 50 intervals on the heterochronous dataset.
+In the manuscript, we compare demographic inferences from sequence data (jointly inferring genealogies and population size trajectories), from a single *maximum a posteriori* (MAP) tree and from a sample of trees (sequential inference, 10 or 100 trees). We chose the trees to come from the *Constant* analysis with sequence data. All these analyses were run with the *Skyfish* model on the heterochronous dataset.
 
 The following arguments are the same for all four analyses:
 
@@ -104,11 +104,11 @@ The following arguments are the same for all four analyses:
 
 - `SAMPLETIMES`: `hetero`
 
-- `MODEL`: `GMRF`
+- `MODEL`: `SkyfishAC`
 
 - `PIECES`: `constant`
 
-- `NUM_INTERVALS`: `50`
+- `NUM_INTERVALS`: `NG`
 
 - `NUM_MCMC_ITERATIONS`: `100000`
 
@@ -126,7 +126,7 @@ The following arguments should be adjusted to the specific analysis:
 
 ### Comparing Constant and Linear Per-Interval Population Sizes
 
-To compare constant and linear per-interval population sizes, we ran the *GMRF* analysis with 50 intervals on heterochronous sequence data for both settings. The only argument that differs is the `PIECES` argument:
+To compare constant and linear per-interval population sizes, we ran the *Skyfish* analysis with on heterochronous sequence data for both settings. The only argument that differs is the `PIECES` argument:
 
 - `DATAFILE`: `horses_heterochronous_sequences.fasta`
 
@@ -136,11 +136,11 @@ To compare constant and linear per-interval population sizes, we ran the *GMRF* 
 
 - `INPUTDATA`: `sequences`
 
-- `MODEL`:` GMRF`
+- `MODEL`: `Skyfish`
 
 - `PIECES`: `constant` or `linear`
 
-- `NUM_INTERVALS`: `50`
+- `NUM_INTERVALS`: `NG`
 
 - `NUM_TREES`: `NG`
 
@@ -182,23 +182,23 @@ We tested three different implementations of our new *Skyfish* model on the hete
 
 ## Simulation Study
 
-For our simulation study, we used the resulting median population size trajectories from the analysis with the *BSP* model and the *GMRF* model on isochronous sequence data to simulate 10 datasets of sequences. We then performed analyses of the 10 simulated datasets with both the *BSP* and the *GMRF* model.
+For our simulation study, we used the resulting median population size trajectories from the analysis with the *BSP* model and the *Constant* model on isochronous sequence data to simulate 10 datasets of sequences. We then performed analyses of the 10 simulated datasets with both the *BSP* and the *Skyfish* model.
 
 First, for extracting the population size trajectories from the two analyses, run the `evaluation` script in the scripts directory from the top directory. In the evaluation folder, we also provide the extracted trajectories used for the manuscript.
 
-Next, run the simulations by running the `simulate_fromBSP.Rev` and the `simulate_fromGMRF.Rev` script that are in the scripts/simulations/ directory from the top directory.
+Next, run the simulations by running the `simulate_fromBSP.Rev` and the `simulate_fromConstant.Rev` script that are in the scripts/simulations/ directory from the top directory.
 
 Last, run the script `mcmc_template_simstudy` that is also in the scripts/simulations/ directory from the top directory. It takes the following arguments:
 
-- `DATAMODEL`: the model which was used for the simulation - `BSP` or `GMRF`
+- `DATAMODEL`: the model which was used for the simulation - `BSP` or `Constant`
 
 - `INDEX`: the index of the simulation, ranging from 1 to 10
 
-- `MODEL`: the model that should be used for the analysis of the simulated data - we chose `BSP` or `GMRF`
+- `MODEL`: the model that should be used for the analysis of the simulated data - we chose `BSP` or `Skyfish`
 
 - `PIECES`: the per-interval demographic function - `constant`or `linear`, we chose `constant`
 
-- `NUM_INTS`: the number of intervals - for our analyses `NG` in the case of the *BSP* model,  `50` in the case of the *GMRF* model
+- `NUM_INTS`: the number of intervals - for our analyses `NG` for both models
 
 - `N_TIPS `= the number of tips to be simulated, we chose `36` as in the original isochronous dataset
 
@@ -208,11 +208,7 @@ For validation of our implementation, we compared results of an analysis with th
 
 ### Plotting Results
 
-For plotting population size trajectories, we used the `R` package `RevGadgets`, installed from the [development branch](https://github.com/revbayes/RevGadgets/tree/development) using `devtools`:
-
-```R
-devtools::install_github("revbayes/RevGadgets", ref = "development)
-```
+For plotting population size trajectories, we used the `R` package `RevGadgets`.
 
 `RevGadgets` includes two functions to work with output from the Bayesian coalescent skyline plot models in `RevBayes`:
 

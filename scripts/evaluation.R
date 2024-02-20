@@ -15,7 +15,7 @@ THINNING = 10
 
 NUM_INTERVALS = 50
 
-DATAMODEL = c("BSP", "GMRF")
+DATAMODEL = c("BSP", "Constant")
 
 PATH = paste0("output/", as.integer(NUM_ITERATIONS), "iterations/", INPUTDATA, "/")
 
@@ -35,7 +35,7 @@ min_age = 0
 for (i in 1:length(DATAMODEL)){
   MODEL = DATAMODEL[i]
   
-  if (MODEL == "GMRF") NUM_INTS = NUM_INTERVALS else NUM_INTS = "NG"
+  if (MODEL == "Constant") PIECES = "NG"
   
   filename = paste0("horses_numiterations", as.integer(NUM_ITERATIONS), "_thinning", THINNING, "_", SAMPLETIMES, "_", MODEL, "_", PIECES, "_int", NUM_INTS, "_", INPUTDATA, "_numtrees", NUM_TREES, "_from", TREESOURCE, "trees_reps", NUM_REPLICATES)
   

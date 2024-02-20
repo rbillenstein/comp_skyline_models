@@ -1,6 +1,6 @@
 ##########################################################################################
 #
-# RevBayes Simulation: Coalescent GMRF process from empirical results
+# RevBayes Simulation: Coalescent Constant process from empirical results
 #
 # authors: Sebastian Hoehna, Ronja Billenstein
 #
@@ -18,35 +18,35 @@ for (i in 2:NUM_TIPS) {
     names.append( taxon("t" + ifelse(i < 10, "00" + i, ifelse(i < 100, "0" + i, i))) )
 }
 
-# Read in GMRF trajectory #
-GMRF_trace = readTrace("evaluation/horses_iso_GMRF.txt", burnin = 0)
-pop_size = GMRF_trace[1].getValues()
-times = GMRF_trace[4].getValues()
+# Read in Constant trajectory
+const_trace = readTrace("evaluation/horses_iso_Constant.txt", burnin = 0)
+pop_size = const_trace[1].getValues()
+times = const_trace[4].getValues()
 times.erase( times[1] )
 
 # Read in values for substitution model
-trace = readTrace("output/100000iterations/sequences/horses_numiterations100000_thinning10_iso_GMRF_constant_int50_sequences_numtreesNG_fromNGtrees_reps2.log", burnin = 0.1)
+trace = readTrace("output/100000iterations/sequences/horses_numiterations100000_thinning10_iso_Constant_NG_intNG_sequences_numtreesNG_fromNGtrees_reps2.log", burnin = 0.1)
 
 clock = median(trace[7].getValues())
 
-er_1 = median(trace[57].getValues())
-er_2 = median(trace[58].getValues())
-er_3 = median(trace[59].getValues())
-er_4 = median(trace[60].getValues())
-er_5 = median(trace[61].getValues())
-er_6 = median(trace[62].getValues())
+er_1 = median(trace[8].getValues())
+er_2 = median(trace[9].getValues())
+er_3 = median(trace[10].getValues())
+er_4 = median(trace[11].getValues())
+er_5 = median(trace[12].getValues())
+er_6 = median(trace[13].getValues())
 
-p_inv = median(trace[112].getValues())
+p_inv = median(trace[14].getValues())
 
-pi_1 = median(trace[113].getValues())
-pi_2 = median(trace[114].getValues())
-pi_3 = median(trace[115].getValues())
-pi_4 = median(trace[116].getValues())
+pi_1 = median(trace[15].getValues())
+pi_2 = median(trace[16].getValues())
+pi_3 = median(trace[17].getValues())
+pi_4 = median(trace[18].getValues())
 
-sr_1 = median(trace[170].getValues())
-sr_2 = median(trace[171].getValues())
-sr_3 = median(trace[172].getValues())
-sr_4 = median(trace[173].getValues())
+sr_1 = median(trace[21].getValues())
+sr_2 = median(trace[22].getValues())
+sr_3 = median(trace[23].getValues())
+sr_4 = median(trace[24].getValues())
 
 er <- simplex( v(er_1, er_2, er_3, er_4, er_5, er_6) )
 pi <- simplex( v(pi_1, pi_2, pi_3, pi_4) )
@@ -54,6 +54,7 @@ pi <- simplex( v(pi_1, pi_2, pi_3, pi_4) )
 Q := fnGTR(er,pi)
 
 sr <- [sr_1, sr_2, sr_3, sr_4]
+
 
 ##############
 # Simulation #
@@ -67,7 +68,7 @@ for (i in 1:NUM_SIMULATIONS) {
 
     # REMEMBER: evaluation done with piecewise constant intervals at specific times - need to chose method = "specified"
 
-    ### the time tree is a stochastic node modeled by the coalescent skyline process (rCoalescentSkyline)
+    ### the time tree is a stochastic node modeled by the coalescent skyline process (dnCoalescentSkyline)
     psi := rCoalescentSkyline(n=1, theta=pop_size, times=times, method="specified", taxa=names)[1]
 
     #############
@@ -78,8 +79,8 @@ for (i in 1:NUM_SIMULATIONS) {
 
     ################
 
-    write(psi, filename = "output/simulations/simulation_fromGMRF_ntips_"+NUM_TIPS+"_tree_"+i+".tre")
-    writeFasta(filename = "output/simulations/simulation_fromGMRF_ntips_"+NUM_TIPS+"_sequences_"+i+".fasta", seq)
+    write(psi, filename = "output/simulations/constant_RB_ntips_"+NUM_TIPS+"_tree_"+i+".tre")
+    writeFasta(filename = "output/simulations/constant_RB_ntips_"+NUM_TIPS+"_sequences_"+i+".fasta", seq)
 
     ################
 
